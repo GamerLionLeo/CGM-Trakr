@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { showSuccess, showError } from '@/utils/toast';
+import { supabase } from '@/integrations/supabase/client'; // Import the Supabase client
 
 interface GlucoseReading {
   timestamp: Date;
@@ -22,7 +23,7 @@ interface GlucoseContextType {
   settings: GlucoseSettings;
   connectDexcom: (username: string, password: string) => Promise<boolean>;
   updateSettings: (newSettings: Partial<GlucoseSettings>) => void;
-  simulateGlucoseReading: () => void;
+  simulateGlucoseReading: () => void; // Keep for initial data generation
 }
 
 const GlucoseContext = createContext<GlucoseContextType | undefined>(undefined);
@@ -56,11 +57,11 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [settings]);
 
-  // Simulate glucose readings
+  // Simulate glucose readings (will be replaced by real Dexcom data later)
   useEffect(() => {
     if (settings.dexcomConnected) {
       const interval = setInterval(() => {
-        simulateGlucoseReading();
+        simulateGlucoseReading(); // For now, still simulating
       }, 10000); // Update every 10 seconds for demonstration
       return () => clearInterval(interval);
     }
@@ -86,20 +87,29 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const connectDexcom = async (username: string, password: string) => {
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (username === "test" && password === "password") {
-          setSettings(prev => ({ ...prev, dexcomConnected: true }));
-          simulateGlucoseReading(); // Get initial reading
-          showSuccess("Successfully connected to Dexcom (simulated)!");
-          resolve(true);
-        } else {
-          showError("Failed to connect to Dexcom. Invalid credentials (simulated).");
-          resolve(false);
-        }
-      }, 1500);
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('dexcom-share', {
+        body: { username, password },
+      });
+
+      if (error) {
+        showError(`Dexcom connection failed: ${error.message}`);
+        return false;
+      }
+
+      if (data.success) {
+        setSettings(prev => ({ ...prev, dexcomConnected: true }));
+        simulateGlucoseReading(); // Get initial reading (still simulated for now)
+        showSuccess("Successfully connected to Dexcom!");
+        return true;
+      } else {
+        showError(data.error || "Failed to connect to Dexcom. Invalid credentials.");
+        return false;
+      }
+    } catch (error: any) {
+      showError(`An unexpected error occurred: ${error.message}`);
+      return false;
+    }
   };
 
   const updateSettings = (newSettings: Partial<GlucoseSettings>) => {
