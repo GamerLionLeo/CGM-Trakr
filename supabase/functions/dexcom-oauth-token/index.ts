@@ -53,6 +53,7 @@ serve(async (req) => {
     const CLIENT_ID = Deno.env.get('DEXCOM_CLIENT_ID');
     const CLIENT_SECRET = Deno.env.get('DEXCOM_CLIENT_SECRET');
     const REDIRECT_URI = Deno.env.get('DEXCOM_REDIRECT_URI');
+    console.log('Edge Function using REDIRECT_URI:', REDIRECT_URI); // Added log
 
     if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
       return new Response(JSON.stringify({ success: false, error: 'Dexcom API credentials (CLIENT_ID, CLIENT_SECRET, REDIRECT_URI) are not configured as Supabase secrets.' }), {

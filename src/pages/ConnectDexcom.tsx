@@ -31,7 +31,7 @@ const ConnectDexcom = () => {
     }
 
     const dexcomAuthUrl = `https://api.dexcom.com/v2/oauth2/login?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=offline_access`;
-    console.log("Redirecting to Dexcom Auth URL:", dexcomAuthUrl);
+    console.log("Redirecting to Dexcom Auth URL:", dexcomAuthUrl); // Added log
     window.location.href = dexcomAuthUrl;
   };
 

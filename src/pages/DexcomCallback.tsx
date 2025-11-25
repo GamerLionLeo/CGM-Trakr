@@ -8,7 +8,7 @@ import { useGlucose } from '@/context/GlucoseContext';
 
 const DexcomCallback = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams(); // Use setSearchParams
   const { updateSettings } = useGlucose();
 
   useEffect(() => {
@@ -27,6 +27,9 @@ const DexcomCallback = () => {
           // Call the Edge Function to exchange the authorization code for tokens
           const { data, error: edgeFunctionError } = await supabase.functions.invoke('dexcom-oauth-token', {
             body: { authorizationCode: code },
+            headers: {
+              Authorization: `Bearer ${await supabase.auth.getSession().then(s => s.data.session?.access_token)}`,
+            },
           });
 
           if (edgeFunctionError) {
@@ -46,6 +49,10 @@ const DexcomCallback = () => {
         } catch (e: any) {
           showError(`An unexpected error occurred during Dexcom token exchange: ${e.message}`);
           navigate('/connect-dexcom');
+        } finally {
+          // Clear the code from the URL to prevent re-use on refresh
+          searchParams.delete('code');
+          setSearchParams(searchParams, { replace: true });
         }
       } else {
         showError("No authorization code received from Dexcom.");
@@ -54,7 +61,7 @@ const DexcomCallback = () => {
     };
 
     handleCallback();
-  }, [searchParams, navigate, updateSettings]);
+  }, [searchParams, navigate, updateSettings, setSearchParams]); // Add setSearchParams to dependency array
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
