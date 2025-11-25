@@ -3,18 +3,28 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGlucose } from "@/context/GlucoseContext";
+import { useSession } from "@/context/SessionContext"; // Import useSession
 
 const Index = () => {
   const navigate = useNavigate();
   const { settings } = useGlucose();
+  const { session, isLoading } = useSession(); // Get session and loading state
 
   useEffect(() => {
-    if (settings.dexcomConnected) {
-      navigate("/dashboard");
-    } else {
-      navigate("/connect-dexcom");
+    if (!isLoading) {
+      if (session) {
+        // User is authenticated
+        if (settings.dexcomConnected) {
+          navigate("/dashboard");
+        } else {
+          navigate("/connect-dexcom");
+        }
+      } else {
+        // User is not authenticated
+        navigate("/login");
+      }
     }
-  }, [settings.dexcomConnected, navigate]);
+  }, [session, isLoading, settings.dexcomConnected, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">

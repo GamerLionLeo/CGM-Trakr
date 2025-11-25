@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { useGlucose } from '@/context/GlucoseContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
-import { Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, LogOut } from 'lucide-react'; // Import LogOut icon
+import { supabase } from '@/integrations/supabase/client'; // Import supabase client
 
 const GlucoseChart = ({ data, timeframe }: { data: any[]; timeframe: string }) => {
   const formatXAxis = (tickItem: number) => {
@@ -54,16 +55,25 @@ const Dashboard = () => {
     (reading) => reading.timestamp.getTime() > Date.now() - 24 * 60 * 60 * 1000
   );
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8">
       <div className="max-w-4xl mx-auto grid gap-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold">Glucose Dashboard</h1>
-          <Button variant="outline" size="icon" asChild>
-            <Link to="/settings">
-              <SettingsIcon className="h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="icon" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" asChild>
+              <Link to="/settings">
+                <SettingsIcon className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <Card>
