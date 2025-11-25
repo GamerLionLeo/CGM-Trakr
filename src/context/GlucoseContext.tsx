@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { showSuccess, showError } from '@/utils/toast';
-import { supabase } from '@/integrations/supabase/client'; // Import the Supabase client
+import { supabase } from '@/integrations/supabase/client';
+import { useSession } from './SessionContext'; // Import useSession to get current user ID
 
 interface GlucoseReading {
   timestamp: Date;
@@ -21,14 +22,15 @@ interface GlucoseContextType {
   currentGlucose: number | null;
   glucoseHistory: GlucoseReading[];
   settings: GlucoseSettings;
-  connectDexcom: (username: string, password: string) => Promise<boolean>;
+  connectDexcom: () => void; // No longer takes username/password directly
   updateSettings: (newSettings: Partial<GlucoseSettings>) => void;
-  simulateGlucoseReading: () => void; // Keep for initial data generation
+  fetchLatestGlucose: () => Promise<void>; // New function to fetch real data
 }
 
 const GlucoseContext = createContext<GlucoseContextType | undefined>(undefined);
 
 export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
+  const { session } = useSession(); // Get session from context
   const [currentGlucose, setCurrentGlucose] = useState<number | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
   const [settings, setSettings] = useState<GlucoseSettings>(() => {
@@ -57,59 +59,100 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [settings]);
 
-  // Simulate glucose readings (will be replaced by real Dexcom data later)
+  // Fetch Dexcom connection status from DB on session change
   useEffect(() => {
-    if (settings.dexcomConnected) {
-      const interval = setInterval(() => {
-        simulateGlucoseReading(); // For now, still simulating
-      }, 10000); // Update every 10 seconds for demonstration
-      return () => clearInterval(interval);
+    const checkDexcomConnection = async () => {
+      if (session?.user) {
+        const { data, error } = await supabase
+          .from('dexcom_tokens')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+          console.error('Error checking Dexcom connection:', error);
+          updateSettings({ dexcomConnected: false });
+        } else if (data) {
+          updateSettings({ dexcomConnected: true });
+        } else {
+          updateSettings({ dexcomConnected: false });
+        }
+      } else {
+        updateSettings({ dexcomConnected: false });
+      }
+    };
+    checkDexcomConnection();
+  }, [session?.user]);
+
+
+  const fetchLatestGlucose = async () => {
+    if (!session?.user || !settings.dexcomConnected) {
+      console.log("Not connected to Dexcom or no user session, skipping glucose fetch.");
+      return;
     }
-  }, [settings.dexcomConnected, settings.alertLow, settings.alertHigh]);
 
-  const simulateGlucoseReading = () => {
-    const newValue = Math.floor(Math.random() * (250 - 60 + 1)) + 60; // Random value between 60 and 250
-    const newReading: GlucoseReading = { timestamp: new Date(), value: newValue };
-    setCurrentGlucose(newValue);
-    setGlucoseHistory((prevHistory) => {
-      const updatedHistory = [...prevHistory, newReading];
-      // Keep history for the last 24 hours (approx 8640 readings if updated every 10s)
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      return updatedHistory.filter(reading => reading.timestamp > twentyFourHoursAgo);
-    });
-
-    // Check for alerts
-    if (newValue < settings.alertLow) {
-      showError(`Glucose is low: ${newValue} mg/dL!`);
-    } else if (newValue > settings.alertHigh) {
-      showError(`Glucose is high: ${newValue} mg/dL!`);
-    }
-  };
-
-  const connectDexcom = async (username: string, password: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('dexcom-share', {
-        body: { username, password },
+      const { data, error } = await supabase.functions.invoke('dexcom-fetch-glucose', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       if (error) {
-        showError(`Dexcom connection failed: ${error.message}`);
-        return false;
+        showError(`Failed to fetch glucose data: ${error.message}`);
+        // If token refresh failed, prompt user to re-connect
+        if (error.message.includes('re-connect Dexcom')) {
+          updateSettings({ dexcomConnected: false });
+          navigate('/connect-dexcom'); // Assuming navigate is available or passed
+        }
+        return;
       }
 
-      if (data.success) {
-        setSettings(prev => ({ ...prev, dexcomConnected: true }));
-        simulateGlucoseReading(); // Get initial reading (still simulated for now)
-        showSuccess("Successfully connected to Dexcom!");
-        return true;
+      if (data.success && data.data && data.data.egvs && data.data.egvs.length > 0) {
+        const latestReading = data.data.egvs[data.data.egvs.length - 1];
+        const newValue = latestReading.value;
+        const newReading: GlucoseReading = { timestamp: new Date(latestReading.displayTime), value: newValue };
+
+        setCurrentGlucose(newValue);
+        setGlucoseHistory((prevHistory) => {
+          const updatedHistory = [...prevHistory, newReading];
+          // Keep history for the last 24 hours
+          const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          return updatedHistory.filter(reading => reading.timestamp > twentyFourHoursAgo);
+        });
+
+        // Check for alerts
+        if (newValue < settings.alertLow) {
+          showError(`Glucose is low: ${newValue} mg/dL!`);
+        } else if (newValue > settings.alertHigh) {
+          showError(`Glucose is high: ${newValue} mg/dL!`);
+        }
       } else {
-        showError(data.error || "Failed to connect to Dexcom. Invalid credentials.");
-        return false;
+        console.log("No glucose data received or data format unexpected.");
+        showError("No glucose data available from Dexcom.");
       }
     } catch (error: any) {
-      showError(`An unexpected error occurred: ${error.message}`);
-      return false;
+      showError(`An unexpected error occurred while fetching glucose: ${error.message}`);
     }
+  };
+
+  // Poll for glucose readings if connected
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (settings.dexcomConnected && session?.user) {
+      fetchLatestGlucose(); // Fetch immediately on connect
+      interval = setInterval(() => {
+        fetchLatestGlucose();
+      }, 60000 * 5); // Fetch every 5 minutes (Dexcom API typically updates every 5 minutes)
+    }
+    return () => clearInterval(interval);
+  }, [settings.dexcomConnected, session?.user, settings.alertLow, settings.alertHigh]); // Re-run if settings change
+
+  const connectDexcom = () => {
+    // This function now just triggers the redirect in ConnectDexcom.tsx
+    // The actual connection logic happens in DexcomCallback.tsx and Edge Functions
+    // No direct action here, just a placeholder for context consistency
+    console.log("Initiating Dexcom connection via OAuth flow.");
   };
 
   const updateSettings = (newSettings: Partial<GlucoseSettings>) => {
@@ -125,7 +168,7 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
         settings,
         connectDexcom,
         updateSettings,
-        simulateGlucoseReading,
+        fetchLatestGlucose,
       }}
     >
       {children}

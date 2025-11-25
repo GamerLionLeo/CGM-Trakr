@@ -1,19 +1,15 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useGlucose } from '@/context/GlucoseContext';
+import { showSuccess, showError } from '@/utils/toast';
 
 const ConnectDexcom = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { connectDexcom, settings } = useGlucose();
+  const { settings } = useGlucose();
 
   React.useEffect(() => {
     if (settings.dexcomConnected) {
@@ -21,57 +17,37 @@ const ConnectDexcom = () => {
     }
   }, [settings.dexcomConnected, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const success = await connectDexcom(username, password);
-    setLoading(false);
-    if (success) {
-      navigate('/dashboard');
+  const handleConnectDexcom = () => {
+    // IMPORTANT: Replace with your actual Dexcom Client ID and Redirect URI
+    // These should be obtained from Dexcom's developer portal and match your Supabase Edge Function secrets.
+    const CLIENT_ID = import.meta.env.VITE_DEXCOM_CLIENT_ID || 'YOUR_DEXCOM_CLIENT_ID'; // Placeholder, will be replaced by env var
+    const REDIRECT_URI = import.meta.env.VITE_DEXCOM_REDIRECT_URI || `${window.location.origin}/dexcom-callback`; // Placeholder, will be replaced by env var
+
+    if (CLIENT_ID === 'YOUR_DEXCOM_CLIENT_ID') {
+      showError("Dexcom Client ID is not configured. Please set VITE_DEXCOM_CLIENT_ID environment variable.");
+      return;
     }
+
+    const dexcomAuthUrl = `https://api.dexcom.com/v2/oauth2/login?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=offline_access`;
+    window.location.href = dexcomAuthUrl;
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">Connect to Dexcom Share</CardTitle>
+          <CardTitle className="text-2xl font-bold">Connect to Dexcom</CardTitle>
           <CardDescription>
-            Enter your Dexcom Share username and password to get started.
-            (Note: This is a simulated connection for demonstration purposes.)
+            To get started, you need to authorize this application to access your Dexcom data.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="Enter your Dexcom username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your Dexcom password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Connecting...' : 'Connect'}
-            </Button>
-          </form>
+          <Button onClick={handleConnectDexcom} className="w-full">
+            Connect with Dexcom
+          </Button>
         </CardContent>
         <CardFooter className="text-sm text-muted-foreground">
-          Use "test" for username and "password" for password to simulate a successful connection.
+          You will be redirected to Dexcom's website to log in and grant permission.
         </CardFooter>
       </Card>
     </div>

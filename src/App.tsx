@@ -8,9 +8,10 @@ import NotFound from "./pages/NotFound";
 import ConnectDexcom from "./pages/ConnectDexcom";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
-import Login from "./pages/Login"; // Import the new Login page
+import Login from "./pages/Login";
+import DexcomCallback from "./pages/DexcomCallback"; // Import the new DexcomCallback page
 import { GlucoseProvider, useGlucose } from "./context/GlucoseContext";
-import { SessionContextProvider, useSession } from "./context/SessionContext"; // Import SessionContextProvider and useSession
+import { SessionContextProvider, useSession } from "./context/SessionContext";
 import { MadeWithDyad } from "./components/made-with-dyad";
 
 const queryClient = new QueryClient();
@@ -36,12 +37,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
-  const { settings } = useGlucose(); // This context is still needed for Dexcom connection status
+  const { settings } = useGlucose();
 
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Index />} /> {/* Index will handle initial redirection */}
+      <Route path="/" element={<Index />} />
+      <Route path="/dexcom-callback" element={<DexcomCallback />} /> {/* New Dexcom callback route */}
       
       {/* Protected Routes */}
       <Route
@@ -81,7 +83,7 @@ const App = () => (
       <Sonner />
       <GlucoseProvider>
         <BrowserRouter>
-          <SessionContextProvider> {/* Wrap with SessionContextProvider */}
+          <SessionContextProvider>
             <AppRoutes />
           </SessionContextProvider>
           <MadeWithDyad />
