@@ -2,4 +2,4 @@
 to continue the sign up process
 
 
-- -The CGM Trakr Team
+- -The CGM Trakr Team :)
