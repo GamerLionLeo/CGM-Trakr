@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from './SessionContext'; // Import useSession to get current user ID
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 interface GlucoseReading {
   timestamp: Date;
@@ -22,15 +23,17 @@ interface GlucoseContextType {
   currentGlucose: number | null;
   glucoseHistory: GlucoseReading[];
   settings: GlucoseSettings;
-  connectDexcom: () => void; // No longer takes username/password directly
+  connectDexcom: () => void;
   updateSettings: (newSettings: Partial<GlucoseSettings>) => void;
-  fetchLatestGlucose: () => Promise<void>; // New function to fetch real data
+  fetchLatestGlucose: () => Promise<void>;
+  disconnectDexcom: () => Promise<void>; // Add disconnectDexcom to context type
 }
 
 const GlucoseContext = createContext<GlucoseContextType | undefined>(undefined);
 
 export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
   const { session } = useSession(); // Get session from context
+  const navigate = useNavigate(); // Initialize useNavigate
   const [currentGlucose, setCurrentGlucose] = useState<number | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
   const [settings, setSettings] = useState<GlucoseSettings>(() => {
@@ -103,7 +106,7 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
         // If token refresh failed, prompt user to re-connect
         if (error.message.includes('re-connect Dexcom')) {
           updateSettings({ dexcomConnected: false });
-          navigate('/connect-dexcom'); // Assuming navigate is available or passed
+          navigate('/connect-dexcom');
         }
         return;
       }
@@ -146,13 +149,37 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
       }, 60000 * 5); // Fetch every 5 minutes (Dexcom API typically updates every 5 minutes)
     }
     return () => clearInterval(interval);
-  }, [settings.dexcomConnected, session?.user, settings.alertLow, settings.alertHigh]); // Re-run if settings change
+  }, [settings.dexcomConnected, session?.user, settings.alertLow, settings.alertHigh, navigate]); // Added navigate to dependencies
 
   const connectDexcom = () => {
-    // This function now just triggers the redirect in ConnectDexcom.tsx
-    // The actual connection logic happens in DexcomCallback.tsx and Edge Functions
-    // No direct action here, just a placeholder for context consistency
     console.log("Initiating Dexcom connection via OAuth flow.");
+  };
+
+  const disconnectDexcom = async () => {
+    if (!session?.user) {
+      showError("No user session found to disconnect Dexcom.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('dexcom_tokens')
+        .delete()
+        .eq('user_id', session.user.id);
+
+      if (error) {
+        showError(`Failed to disconnect Dexcom: ${error.message}`);
+        return;
+      }
+
+      updateSettings({ dexcomConnected: false });
+      setCurrentGlucose(null);
+      setGlucoseHistory([]);
+      showSuccess("Dexcom successfully disconnected!");
+      navigate('/connect-dexcom');
+    } catch (e: any) {
+      showError(`An unexpected error occurred during Dexcom disconnection: ${e.message}`);
+    }
   };
 
   const updateSettings = (newSettings: Partial<GlucoseSettings>) => {
@@ -169,6 +196,7 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
         connectDexcom,
         updateSettings,
         fetchLatestGlucose,
+        disconnectDexcom, // Provide disconnectDexcom
       }}
     >
       {children}

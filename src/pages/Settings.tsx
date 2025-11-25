@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useGlucose } from '@/context/GlucoseContext';
 import { ArrowLeft } from 'lucide-react';
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { settings, updateSettings } = useGlucose();
+  const { settings, updateSettings, disconnectDexcom } = useGlucose(); // Get disconnectDexcom
 
   const [targetLow, setTargetLow] = useState(settings.targetLow.toString());
   const [targetHigh, setTargetHigh] = useState(settings.targetHigh.toString());
@@ -27,6 +28,10 @@ const Settings = () => {
       alertHigh: parseInt(alertHigh),
     });
     navigate('/dashboard');
+  };
+
+  const handleDisconnect = async () => {
+    await disconnectDexcom();
   };
 
   return (
@@ -103,6 +108,23 @@ const Settings = () => {
             <Button onClick={handleSave} className="w-full">Save Settings</Button>
           </CardFooter>
         </Card>
+
+        {settings.dexcomConnected && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Dexcom Connection</CardTitle>
+              <CardDescription>Manage your Dexcom data connection.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Your Dexcom account is currently connected. Disconnecting will stop glucose data updates.
+              </p>
+              <Button variant="destructive" onClick={handleDisconnect} className="w-full">
+                Disconnect Dexcom
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
