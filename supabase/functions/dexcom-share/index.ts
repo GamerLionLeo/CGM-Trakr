@@ -31,6 +31,18 @@ serve(async (req) => {
       });
     }
 
+    // IMPORTANT: The 'ApplicationNotAuthenticated' error indicates that the applicationId below is invalid.
+    // You need to replace 'YOUR_DEXCOM_APPLICATION_ID_HERE' with a valid Dexcom Share API Application ID.
+    // This ID is typically obtained by registering your application with Dexcom or by inspecting
+    // requests from an official Dexcom Share client.
+    const DEXCOM_APPLICATION_ID = 'YOUR_DEXCOM_APPLICATION_ID_HERE'; 
+    if (DEXCOM_APPLICATION_ID === 'YOUR_DEXCOM_APPLICATION_ID_HERE') {
+      return new Response(JSON.stringify({ success: false, error: 'Dexcom Application ID is not configured. Please update the Edge Function with a valid ID.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Step 1: Authenticate with Dexcom Share
     const loginResponse = await fetch('https://shareous1.dexcom.com/ShareWebServices/Services/General/LoginPublisherAccountByName', {
       method: 'POST',
@@ -41,7 +53,7 @@ serve(async (req) => {
       body: JSON.stringify({
         accountName: username,
         password: password,
-        applicationId: 'd8665ade-9673-4e27-9782-5034c17b576d',
+        applicationId: DEXCOM_APPLICATION_ID, // Use the configured application ID
       }),
     });
 
