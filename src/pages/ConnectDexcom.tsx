@@ -18,17 +18,20 @@ const ConnectDexcom = () => {
   }, [settings.dexcomConnected, navigate]);
 
   const handleConnectDexcom = () => {
-    // IMPORTANT: Replace with your actual Dexcom Client ID and Redirect URI
-    // These should be obtained from Dexcom's developer portal and match your Supabase Edge Function secrets.
-    const CLIENT_ID = import.meta.env.VITE_DEXCOM_CLIENT_ID || 'YOUR_DEXCOM_CLIENT_ID'; // Placeholder, will be replaced by env var
-    const REDIRECT_URI = import.meta.env.VITE_DEXCOM_REDIRECT_URI || `${window.location.origin}/dexcom-callback`; // Placeholder, will be replaced by env var
+    const CLIENT_ID = import.meta.env.VITE_DEXCOM_CLIENT_ID;
+    const REDIRECT_URI = import.meta.env.VITE_DEXCOM_REDIRECT_URI;
 
-    if (CLIENT_ID === 'YOUR_DEXCOM_CLIENT_ID') {
-      showError("Dexcom Client ID is not configured. Please set VITE_DEXCOM_CLIENT_ID environment variable.");
+    console.log("Attempting to connect to Dexcom...");
+    console.log("VITE_DEXCOM_CLIENT_ID:", CLIENT_ID);
+    console.log("VITE_DEXCOM_REDIRECT_URI:", REDIRECT_URI);
+
+    if (!CLIENT_ID || !REDIRECT_URI) {
+      showError("Dexcom Client ID or Redirect URI is not configured. Please set VITE_DEXCOM_CLIENT_ID and VITE_DEXCOM_REDIRECT_URI environment variables.");
       return;
     }
 
     const dexcomAuthUrl = `https://api.dexcom.com/v2/oauth2/login?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=offline_access`;
+    console.log("Redirecting to Dexcom Auth URL:", dexcomAuthUrl);
     window.location.href = dexcomAuthUrl;
   };
 
