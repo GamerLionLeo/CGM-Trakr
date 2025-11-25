@@ -31,34 +31,30 @@ serve(async (req) => {
       });
     }
 
-    // --- START REAL DEXCOM API INTEGRATION ---
-    // You will need to uncomment and fill in the actual Dexcom API endpoints and logic here.
-    // This is a conceptual example and might require adjustments based on Dexcom's current API.
-
     // Step 1: Authenticate with Dexcom Share
     const loginResponse = await fetch('https://shareous1.dexcom.com/ShareWebServices/Services/General/LoginPublisherAccountByName', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'Dexcom Share/3.0.2.11 CFNetwork/711.2.23 Darwin/14.0.0', // Common User-Agent for Dexcom
+        'User-Agent': 'Dexcom Share/3.0.2.11 CFNetwork/711.2.23 Darwin/14.0.0',
       },
       body: JSON.stringify({
         accountName: username,
         password: password,
-        applicationId: 'd8665ade-9673-4e27-9782-5034c17b576d', // This is a known Dexcom application ID
+        applicationId: 'd8665ade-9673-4e27-9782-5034c17b576d',
       }),
     });
 
     if (!loginResponse.ok) {
-      const errorText = await loginResponse.text();
-      console.error('Dexcom login failed:', loginResponse.status, errorText);
-      return new Response(JSON.stringify({ success: false, error: 'Dexcom login failed', details: errorText }), {
+      const errorBody = await loginResponse.text(); // Get full response body for debugging
+      console.error('Dexcom login failed:', loginResponse.status, errorBody);
+      return new Response(JSON.stringify({ success: false, error: 'Dexcom login failed', details: errorBody }), {
         status: loginResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const sessionID = await loginResponse.text(); // Dexcom login often returns a plain text session ID
+    const sessionID = await loginResponse.text();
 
     // Step 2: Fetch latest glucose values using the session ID
     const glucoseDataResponse = await fetch(`https://shareous1.dexcom.com/ShareWebServices/Services/Publisher/ReadPublisherLatestGlucoseValues?sessionID=${sessionID}&minutes=1440&maxCount=1`, {
@@ -68,9 +64,9 @@ serve(async (req) => {
     });
 
     if (!glucoseDataResponse.ok) {
-      const errorText = await glucoseDataResponse.text();
-      console.error('Failed to fetch glucose data:', glucoseDataResponse.status, errorText);
-      return new Response(JSON.stringify({ success: false, error: 'Failed to fetch glucose data', details: errorText }), {
+      const errorBody = await glucoseDataResponse.text(); // Get full response body for debugging
+      console.error('Failed to fetch glucose data:', glucoseDataResponse.status, errorBody);
+      return new Response(JSON.stringify({ success: false, error: 'Failed to fetch glucose data', details: errorBody }), {
         status: glucoseDataResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -78,13 +74,10 @@ serve(async (req) => {
 
     const glucoseData = await glucoseDataResponse.json();
 
-    // Return the actual glucose data
     return new Response(JSON.stringify({ success: true, data: glucoseData }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
-    // --- END REAL DEXCOM API INTEGRATION ---
 
   } catch (error) {
     console.error('Error in Dexcom Share Edge Function:', error);
