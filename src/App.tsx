@@ -9,7 +9,7 @@ import ConnectDexcom from "./pages/ConnectDexcom";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
-import DexcomCallback from "./pages/DexcomCallback"; // Import the new DexcomCallback page
+import DexcomCallback from "./pages/DexcomCallback";
 import { GlucoseProvider, useGlucose } from "./context/GlucoseContext";
 import { SessionContextProvider, useSession } from "./context/SessionContext";
 import { MadeWithDyad } from "./components/made-with-dyad";
@@ -43,7 +43,7 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Index />} />
-      <Route path="/dexcom-callback" element={<DexcomCallback />} /> {/* New Dexcom callback route */}
+      <Route path="/dexcom-callback" element={<DexcomCallback />} />
       
       {/* Protected Routes */}
       <Route
@@ -81,14 +81,14 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <GlucoseProvider>
-        <BrowserRouter>
-          <SessionContextProvider>
+      <BrowserRouter>
+        <SessionContextProvider> {/* SessionContextProvider now wraps GlucoseProvider */}
+          <GlucoseProvider>
             <AppRoutes />
-          </SessionContextProvider>
-          <MadeWithDyad />
-        </BrowserRouter>
-      </GlucoseProvider>
+          </GlucoseProvider>
+        </SessionContextProvider>
+        <MadeWithDyad />
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
