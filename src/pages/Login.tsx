@@ -17,7 +17,7 @@ const Login = () => {
         <CardContent>
           <Auth
             supabaseClient={supabase}
-            providers={[]} // You can add 'google', 'github', etc. here if desired
+            providers={['google']} // Added 'google' to the providers array
             appearance={{
               theme: ThemeSupa,
               variables: {
