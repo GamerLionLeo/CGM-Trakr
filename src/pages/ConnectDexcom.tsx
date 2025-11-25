@@ -6,6 +6,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { useGlucose } from '@/context/GlucoseContext';
 import { showSuccess, showError } from '@/utils/toast';
+import { LogOut } from 'lucide-react'; // Import LogOut icon
+import { supabase } from '@/integrations/supabase/client'; // Import supabase client
 
 const ConnectDexcom = () => {
   const navigate = useNavigate();
@@ -35,15 +37,22 @@ const ConnectDexcom = () => {
     window.location.href = dexcomAuthUrl;
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-2xl font-bold">Connect to Dexcom</CardTitle>
-          <CardDescription>
-            To get started, you need to authorize this application to access your Dexcom data.
-          </CardDescription>
+          <Button variant="outline" size="icon" onClick={handleLogout}>
+            <LogOut className="h-4 w-4" />
+          </Button>
         </CardHeader>
+        <CardDescription className="px-6 pb-4">
+          To get started, you need to authorize this application to access your Dexcom data.
+        </CardDescription>
         <CardContent>
           <Button onClick={handleConnectDexcom} className="w-full">
             Connect with Dexcom
