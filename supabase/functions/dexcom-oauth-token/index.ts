@@ -107,9 +107,9 @@ serve(async (req) => {
       .from('dexcom_tokens')
       .select('id')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle(); // Changed from .single() to .maybeSingle()
 
-    if (fetchError && fetchError.code !== 'PGRST116') {
+    if (fetchError) { // Check for actual database errors
       console.error('Error fetching existing Dexcom tokens:', fetchError);
       return new Response(JSON.stringify({ success: false, error: 'Database error while checking existing tokens.' }), {
         status: 500,

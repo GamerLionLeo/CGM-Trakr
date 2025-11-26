@@ -60,10 +60,18 @@ serve(async (req) => {
       .from('dexcom_tokens')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle(); // Changed from .single() to .maybeSingle()
 
-    if (fetchTokensError || !dexcomTokens) {
+    if (fetchTokensError) { // Check for actual database errors, not just no rows
       console.error('dexcom-fetch-glucose: Error fetching Dexcom tokens for user:', fetchTokensError?.message);
+      return new Response(JSON.stringify({ success: false, error: 'Database error while fetching Dexcom tokens.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    if (!dexcomTokens) { // If no tokens found
+      console.error('dexcom-fetch-glucose: Dexcom tokens not found for user.');
       return new Response(JSON.stringify({ success: false, error: 'Dexcom tokens not found for user. Please connect Dexcom first.' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
