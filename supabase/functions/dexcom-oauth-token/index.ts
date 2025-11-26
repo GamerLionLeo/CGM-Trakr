@@ -108,7 +108,7 @@ serve(async (req) => {
       // Update existing tokens
       const { error: updateError } = await supabase
         .from('dexcom_tokens')
-        .update({ access_token, refresh_token, expires_at })
+        .update({ access_token, refresh_token, expires_at: expiresAt }) // Corrected to expiresAt
         .eq('user_id', user.id);
 
       if (updateError) {
@@ -122,7 +122,7 @@ serve(async (req) => {
       // Insert new tokens
       const { error: insertError } = await supabase
         .from('dexcom_tokens')
-        .insert({ user_id: user.id, access_token, refresh_token, expires_at });
+        .insert({ user_id: user.id, access_token, refresh_token, expires_at: expiresAt }); // Corrected to expiresAt
 
       if (insertError) {
         console.error('Error inserting Dexcom tokens:', insertError);
