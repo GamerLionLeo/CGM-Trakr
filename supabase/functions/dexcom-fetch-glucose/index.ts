@@ -25,6 +25,7 @@ serve(async (req) => {
     // Verify JWT token to get the user ID
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('dexcom-fetch-glucose: Unauthorized: No Authorization header');
       return new Response(JSON.stringify({ error: 'Unauthorized: No Authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -34,18 +35,20 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      console.error('Error getting user from token:', userError?.message);
+      console.error('dexcom-fetch-glucose: Error getting user from token:', userError?.message);
       return new Response(JSON.stringify({ error: 'Unauthorized: Invalid token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    console.log('dexcom-fetch-glucose: User authenticated:', user.id);
 
     const CLIENT_ID = Deno.env.get('DEXCOM_CLIENT_ID');
     const CLIENT_SECRET = Deno.env.get('DEXCOM_CLIENT_SECRET');
     const REDIRECT_URI = Deno.env.get('DEXCOM_REDIRECT_URI');
 
     if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
+      console.error('dexcom-fetch-glucose: Dexcom API credentials (CLIENT_ID, CLIENT_SECRET, REDIRECT_URI) are not configured as Supabase secrets.');
       return new Response(JSON.stringify({ success: false, error: 'Dexcom API credentials (CLIENT_ID, CLIENT_SECRET, REDIRECT_URI) are not configured as Supabase secrets.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -60,12 +63,13 @@ serve(async (req) => {
       .single();
 
     if (fetchTokensError || !dexcomTokens) {
-      console.error('Error fetching Dexcom tokens for user:', fetchTokensError?.message);
+      console.error('dexcom-fetch-glucose: Error fetching Dexcom tokens for user:', fetchTokensError?.message);
       return new Response(JSON.stringify({ success: false, error: 'Dexcom tokens not found for user. Please connect Dexcom first.' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    console.log('dexcom-fetch-glucose: Dexcom tokens retrieved from DB.');
 
     let currentAccessToken = dexcomTokens.access_token;
     let currentRefreshToken = dexcomTokens.refresh_token;
@@ -73,7 +77,7 @@ serve(async (req) => {
 
     // Check if access token is expired or about to expire (e.g., within 5 minutes)
     if (expiresAt.getTime() < Date.now() + 5 * 60 * 1000) {
-      console.log('Access token expired or near expiration, attempting to refresh...');
+      console.log('dexcom-fetch-glucose: Access token expired or near expiration, attempting to refresh...');
       // Step 6: Refresh Tokens
       const refreshResponse = await fetch('https://api.dexcom.com/v2/oauth2/token', {
         method: 'POST',
@@ -90,7 +94,7 @@ serve(async (req) => {
 
       if (!refreshResponse.ok) {
         const errorBody = await refreshResponse.json();
-        console.error('Dexcom token refresh failed:', refreshResponse.status, errorBody);
+        console.error('dexcom-fetch-glucose: Dexcom token refresh failed:', refreshResponse.status, errorBody);
         // Invalidate tokens and prompt user to re-authorize
         await supabase.from('dexcom_tokens').delete().eq('user_id', user.id);
         return new Response(JSON.stringify({ success: false, error: 'Failed to refresh Dexcom token. Please re-connect Dexcom.', details: errorBody }), {
@@ -111,13 +115,15 @@ serve(async (req) => {
         .eq('user_id', user.id);
 
       if (updateError) {
-        console.error('Error updating refreshed Dexcom tokens:', updateError);
+        console.error('dexcom-fetch-glucose: Error updating refreshed Dexcom tokens:', updateError);
         return new Response(JSON.stringify({ success: false, error: 'Failed to update refreshed Dexcom tokens in database.' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      console.log('Tokens refreshed and updated successfully.');
+      console.log('dexcom-fetch-glucose: Tokens refreshed and updated successfully.');
+    } else {
+      console.log('dexcom-fetch-glucose: Access token is valid, no refresh needed.');
     }
 
     // Step 5: Make Requests Using Bearer Token
@@ -127,6 +133,7 @@ serve(async (req) => {
     const startDate = twentyFourHoursAgo.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
     const endDate = now.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
 
+    console.log(`dexcom-fetch-glucose: Fetching glucose data from ${startDate} to ${endDate}`);
     const glucoseDataResponse = await fetch(`https://api.dexcom.com/v2/users/self/egvs?startDate=${startDate}&endDate=${endDate}`, {
       headers: {
         'Authorization': `Bearer ${currentAccessToken}`,
@@ -136,7 +143,7 @@ serve(async (req) => {
 
     if (!glucoseDataResponse.ok) {
       const errorBody = await glucoseDataResponse.json();
-      console.error('Failed to fetch glucose data from Dexcom API:', glucoseDataResponse.status, errorBody);
+      console.error('dexcom-fetch-glucose: Failed to fetch glucose data from Dexcom API:', glucoseDataResponse.status, errorBody);
       return new Response(JSON.stringify({ success: false, error: 'Failed to fetch glucose data from Dexcom.', details: errorBody }), {
         status: glucoseDataResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -144,6 +151,7 @@ serve(async (req) => {
     }
 
     const glucoseData = await glucoseDataResponse.json();
+    console.log('dexcom-fetch-glucose: Successfully fetched glucose data from Dexcom.');
 
     return new Response(JSON.stringify({ success: true, data: glucoseData }), {
       status: 200,
@@ -151,7 +159,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error('Error in dexcom-fetch-glucose Edge Function:', error);
+    console.error('dexcom-fetch-glucose: Error in dexcom-fetch-glucose Edge Function:', error);
     return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
