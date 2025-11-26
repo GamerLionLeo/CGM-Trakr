@@ -11,10 +11,27 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Verify JWT token to get the user ID
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    console.error('dexcom-fetch-glucose: Unauthorized: No Authorization header');
+    return new Response(JSON.stringify({ error: 'Unauthorized: No Authorization header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const token = authHeader.replace('Bearer ', '');
+
+  // Initialize Supabase client with the user's JWT for RLS
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`, // Pass the user's JWT for RLS
+        },
+      },
       auth: {
         persistSession: false,
       },
@@ -22,16 +39,6 @@ serve(async (req) => {
   );
 
   try {
-    // Verify JWT token to get the user ID
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('dexcom-fetch-glucose: Unauthorized: No Authorization header');
-      return new Response(JSON.stringify({ error: 'Unauthorized: No Authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
@@ -42,7 +49,7 @@ serve(async (req) => {
       });
     }
     console.log('dexcom-fetch-glucose: User authenticated:', user.id);
-    console.log('dexcom-fetch-glucose: Querying for user_id:', user.id); // Added log
+    console.log('dexcom-fetch-glucose: Querying for user_id:', user.id);
 
     const CLIENT_ID = Deno.env.get('DEXCOM_CLIENT_ID');
     const CLIENT_SECRET = Deno.env.get('DEXCOM_CLIENT_SECRET');
@@ -63,9 +70,9 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .maybeSingle();
 
-    console.log('dexcom-fetch-glucose: Result of token query - data:', dexcomTokens ? 'Found' : 'Not Found', 'error:', fetchTokensError); // Added log
+    console.log('dexcom-fetch-glucose: Result of token query - data:', dexcomTokens ? 'Found' : 'Not Found', 'error:', fetchTokensError);
 
-    if (fetchTokensError) { // Check for actual database errors, not just no rows
+    if (fetchTokensError) {
       console.error('dexcom-fetch-glucose: Database error while fetching Dexcom tokens for user:', fetchTokensError?.message);
       return new Response(JSON.stringify({ success: false, error: 'Database error while fetching Dexcom tokens.' }), {
         status: 500,
@@ -73,7 +80,7 @@ serve(async (req) => {
       });
     }
     
-    if (!dexcomTokens) { // If no tokens found
+    if (!dexcomTokens) {
       console.error('dexcom-fetch-glucose: Dexcom tokens not found for user. Please connect Dexcom first.');
       return new Response(JSON.stringify({ success: false, error: 'Dexcom tokens not found for user. Please connect Dexcom first.' }), {
         status: 404,
