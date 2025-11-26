@@ -25,6 +25,7 @@ serve(async (req) => {
     // Verify JWT token to get the user ID
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('Unauthorized: No Authorization header');
       return new Response(JSON.stringify({ error: 'Unauthorized: No Authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -44,6 +45,7 @@ serve(async (req) => {
     const { authorizationCode } = await req.json();
 
     if (!authorizationCode) {
+      console.error('Authorization code is required.');
       return new Response(JSON.stringify({ error: 'Authorization code is required.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -53,14 +55,23 @@ serve(async (req) => {
     const CLIENT_ID = Deno.env.get('DEXCOM_CLIENT_ID');
     const CLIENT_SECRET = Deno.env.get('DEXCOM_CLIENT_SECRET');
     const REDIRECT_URI = Deno.env.get('DEXCOM_REDIRECT_URI');
-    console.log('Edge Function using REDIRECT_URI:', REDIRECT_URI); // Added log
+    console.log('Edge Function using REDIRECT_URI:', REDIRECT_URI);
 
     if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
+      console.error('Dexcom API credentials (CLIENT_ID, CLIENT_SECRET, REDIRECT_URI) are not configured as Supabase secrets.');
       return new Response(JSON.stringify({ success: false, error: 'Dexcom API credentials (CLIENT_ID, CLIENT_SECRET, REDIRECT_URI) are not configured as Supabase secrets.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // --- NEW LOGGING HERE ---
+    console.log('Dexcom Token Exchange Request Details:');
+    console.log('  CLIENT_ID:', CLIENT_ID);
+    console.log('  CLIENT_SECRET:', CLIENT_SECRET ? '********' : 'NOT SET'); // Mask secret for security
+    console.log('  REDIRECT_URI:', REDIRECT_URI);
+    console.log('  Authorization Code:', authorizationCode);
+    // --- END NEW LOGGING ---
 
     // Step 4: Exchange authorization_code for access_token and refresh_token
     const tokenResponse = await fetch('https://api.dexcom.com/v2/oauth2/token', {
@@ -79,7 +90,7 @@ serve(async (req) => {
 
     if (!tokenResponse.ok) {
       const errorBody = await tokenResponse.json();
-      console.error('Dexcom token exchange failed:', tokenResponse.status, errorBody);
+      console.error('Dexcom token exchange failed:', tokenResponse.status, errorBody); // Log errorBody
       return new Response(JSON.stringify({ success: false, error: 'Failed to exchange authorization code for tokens.', details: errorBody }), {
         status: tokenResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -108,7 +119,7 @@ serve(async (req) => {
       // Update existing tokens
       const { error: updateError } = await supabase
         .from('dexcom_tokens')
-        .update({ access_token, refresh_token, expires_at: expiresAt }) // Corrected to expiresAt
+        .update({ access_token, refresh_token, expires_at: expiresAt })
         .eq('user_id', user.id);
 
       if (updateError) {
@@ -122,7 +133,7 @@ serve(async (req) => {
       // Insert new tokens
       const { error: insertError } = await supabase
         .from('dexcom_tokens')
-        .insert({ user_id: user.id, access_token, refresh_token, expires_at: expiresAt }); // Corrected to expiresAt
+        .insert({ user_id: user.id, access_token, refresh_token, expires_at: expiresAt });
 
       if (insertError) {
         console.error('Error inserting Dexcom tokens:', insertError);
