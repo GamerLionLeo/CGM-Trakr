@@ -42,6 +42,7 @@ serve(async (req) => {
       });
     }
     console.log('dexcom-fetch-glucose: User authenticated:', user.id);
+    console.log('dexcom-fetch-glucose: Querying for user_id:', user.id); // Added log
 
     const CLIENT_ID = Deno.env.get('DEXCOM_CLIENT_ID');
     const CLIENT_SECRET = Deno.env.get('DEXCOM_CLIENT_SECRET');
@@ -62,6 +63,8 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .maybeSingle();
 
+    console.log('dexcom-fetch-glucose: Result of token query - data:', dexcomTokens ? 'Found' : 'Not Found', 'error:', fetchTokensError); // Added log
+
     if (fetchTokensError) { // Check for actual database errors, not just no rows
       console.error('dexcom-fetch-glucose: Database error while fetching Dexcom tokens for user:', fetchTokensError?.message);
       return new Response(JSON.stringify({ success: false, error: 'Database error while fetching Dexcom tokens.' }), {
@@ -77,7 +80,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log('dexcom-fetch-glucose: Dexcom tokens retrieved from DB:', dexcomTokens ? 'Found' : 'Not Found');
+    console.log('dexcom-fetch-glucose: Dexcom tokens retrieved from DB.');
 
     let currentAccessToken = dexcomTokens.access_token;
     let currentRefreshToken = dexcomTokens.refresh_token;
