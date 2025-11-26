@@ -24,8 +24,8 @@ const ConnectDexcom = () => {
     const REDIRECT_URI = import.meta.env.VITE_DEXCOM_REDIRECT_URI;
 
     console.log("Attempting to connect to Dexcom...");
-    console.log("VITE_DEXCOM_CLIENT_ID:", CLIENT_ID);
-    console.log("VITE_DEXCOM_REDIRECT_URI:", REDIRECT_URI);
+    console.log("VITE_DEXCOM_CLIENT_ID (from app):", CLIENT_ID); // Added log
+    console.log("VITE_DEXCOM_REDIRECT_URI (from app):", REDIRECT_URI); // Added log
 
     if (!CLIENT_ID || !REDIRECT_URI) {
       showError("Dexcom Client ID or Redirect URI is not configured. Please set VITE_DEXCOM_CLIENT_ID and VITE_DEXCOM_REDIRECT_URI environment variables.");
