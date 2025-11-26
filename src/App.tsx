@@ -76,21 +76,26 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <SessionContextProvider> {/* SessionContextProvider now wraps GlucoseProvider */}
-          <GlucoseProvider>
-            <AppRoutes />
-          </GlucoseProvider>
-        </SessionContextProvider>
-        <MadeWithDyad />
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // Temporary log to check environment variables
+  console.log("VITE_TEST_VAR from App.tsx:", import.meta.env.VITE_TEST_VAR);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <SessionContextProvider> {/* SessionContextProvider now wraps GlucoseProvider */}
+            <GlucoseProvider>
+              <AppRoutes />
+            </GlucoseProvider>
+          </SessionContextProvider>
+          <MadeWithDyad />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
