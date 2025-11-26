@@ -154,9 +154,8 @@ serve(async (req) => {
     // Step 5: Make Requests Using Bearer Token
     // Fetch latest EGVs (Estimated Glucose Values)
     const now = new Date();
-    // TEMPORARY CHANGE: Request data for the last hour instead of 24 hours
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000); 
-    const startDate = oneHourAgo.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000); 
+    const startDate = twentyFourHoursAgo.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
     const endDate = now.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
 
     const dexcomApiUrl = `https://api.dexcom.com/v2/users/self/egvs?startDate=${startDate}&endDate=${endDate}`;
