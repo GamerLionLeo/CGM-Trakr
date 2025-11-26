@@ -3,8 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { showSuccess, showError } from '@/utils/toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useSession } from './SessionContext'; // Import useSession to get current user ID
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useSession } from './SessionContext';
+import { useNavigate } from 'react-router-dom';
 
 interface GlucoseReading {
   timestamp: Date;
@@ -26,14 +26,14 @@ interface GlucoseContextType {
   connectDexcom: () => void;
   updateSettings: (newSettings: Partial<GlucoseSettings>) => void;
   fetchLatestGlucose: () => Promise<void>;
-  disconnectDexcom: () => Promise<void>; // Add disconnectDexcom to context type
+  disconnectDexcom: () => Promise<void>;
 }
 
 const GlucoseContext = createContext<GlucoseContextType | undefined>(undefined);
 
 export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
-  const { session } = useSession(); // Get session from context
-  const navigate = useNavigate(); // Initialize useNavigate
+  const { session } = useSession();
+  const navigate = useNavigate();
   const [currentGlucose, setCurrentGlucose] = useState<number | null>(null);
   const [glucoseHistory, setGlucoseHistory] = useState<GlucoseReading[]>([]);
   const [settings, setSettings] = useState<GlucoseSettings>(() => {
@@ -62,10 +62,17 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [settings]);
 
-  // Fetch Dexcom connection status from DB on session change
+  // Fetch Dexcom connection status from DB or set for demo user on session change
   useEffect(() => {
     const checkDexcomConnection = async () => {
       if (session?.user) {
+        // --- DEMO USER LOGIC ---
+        if (session.user.email === 'demo@example.org') {
+          updateSettings({ dexcomConnected: true });
+          return; // Exit early for demo user
+        }
+        // --- END DEMO USER LOGIC ---
+
         const { data, error } = await supabase
           .from('dexcom_tokens')
           .select('id')
@@ -89,8 +96,35 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
 
 
   const fetchLatestGlucose = async () => {
-    if (!session?.user || !settings.dexcomConnected) {
-      console.log("Not connected to Dexcom or no user session, skipping glucose fetch.");
+    if (!session?.user) {
+      console.log("No user session, skipping glucose fetch.");
+      return;
+    }
+
+    // --- DEMO USER MOCK DATA LOGIC ---
+    if (session.user.email === 'demo@example.org') {
+      const mockGlucoseValue = Math.floor(Math.random() * (200 - 70 + 1)) + 70; // Random value between 70 and 200
+      const mockReading: GlucoseReading = { timestamp: new Date(), value: mockGlucoseValue };
+
+      setCurrentGlucose(mockGlucoseValue);
+      setGlucoseHistory((prevHistory) => {
+        const updatedHistory = [...prevHistory, mockReading];
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        return updatedHistory.filter(reading => reading.timestamp > twentyFourHoursAgo);
+      });
+
+      if (mockGlucoseValue < settings.alertLow) {
+        showError(`(Demo) Glucose is low: ${mockGlucoseValue} mg/dL!`);
+      } else if (mockGlucoseValue > settings.alertHigh) {
+        showError(`(Demo) Glucose is high: ${mockGlucoseValue} mg/dL!`);
+      }
+      showSuccess("(Demo) Mock glucose data fetched.");
+      return; // Exit after providing mock data
+    }
+    // --- END DEMO USER MOCK DATA LOGIC ---
+
+    if (!settings.dexcomConnected) {
+      console.log("Not connected to Dexcom, skipping glucose fetch.");
       return;
     }
 
@@ -103,7 +137,6 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         showError(`Failed to fetch glucose data: ${error.message}`);
-        // If token refresh failed, prompt user to re-connect
         if (error.message.includes('re-connect Dexcom')) {
           updateSettings({ dexcomConnected: false });
           navigate('/connect-dexcom');
@@ -119,12 +152,10 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
         setCurrentGlucose(newValue);
         setGlucoseHistory((prevHistory) => {
           const updatedHistory = [...prevHistory, newReading];
-          // Keep history for the last 24 hours
           const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
           return updatedHistory.filter(reading => reading.timestamp > twentyFourHoursAgo);
         });
 
-        // Check for alerts
         if (newValue < settings.alertLow) {
           showError(`Glucose is low: ${newValue} mg/dL!`);
         } else if (newValue > settings.alertHigh) {
@@ -149,9 +180,15 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
       }, 60000 * 5); // Fetch every 5 minutes (Dexcom API typically updates every 5 minutes)
     }
     return () => clearInterval(interval);
-  }, [settings.dexcomConnected, session?.user, settings.alertLow, settings.alertHigh, navigate]); // Added navigate to dependencies
+  }, [settings.dexcomConnected, session?.user, settings.alertLow, settings.alertHigh, navigate]);
 
   const connectDexcom = () => {
+    // --- DEMO USER LOGIC ---
+    if (session?.user?.email === 'demo@example.org') {
+      showSuccess("(Demo) Dexcom is already simulated as connected for this account.");
+      return;
+    }
+    // --- END DEMO USER LOGIC ---
     console.log("Initiating Dexcom connection via OAuth flow.");
   };
 
@@ -160,6 +197,17 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
       showError("No user session found to disconnect Dexcom.");
       return;
     }
+
+    // --- DEMO USER LOGIC ---
+    if (session.user.email === 'demo@example.org') {
+      updateSettings({ dexcomConnected: false });
+      setCurrentGlucose(null);
+      setGlucoseHistory([]);
+      showSuccess("(Demo) Dexcom simulation disconnected for this account.");
+      navigate('/connect-dexcom');
+      return;
+    }
+    // --- END DEMO USER LOGIC ---
 
     try {
       const { error } = await supabase
@@ -196,7 +244,7 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
         connectDexcom,
         updateSettings,
         fetchLatestGlucose,
-        disconnectDexcom, // Provide disconnectDexcom
+        disconnectDexcom,
       }}
     >
       {children}
