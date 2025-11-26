@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react'; // Import useState
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { showError, showSuccess } from '@/utils/toast';
@@ -10,12 +10,17 @@ const DexcomCallback = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { updateSettings } = useGlucose();
+  const [isProcessing, setIsProcessing] = useState(false); // New state to prevent duplicate calls
 
   useEffect(() => {
     const code = searchParams.get('code');
     const error = searchParams.get('error');
 
     const handleCallback = async () => {
+      if (isProcessing) {
+        return; // Already processing, prevent duplicate calls
+      }
+
       if (error) {
         console.error("Dexcom authorization error:", error);
         showError(`Dexcom authorization denied: ${error}`);
@@ -24,6 +29,14 @@ const DexcomCallback = () => {
       }
 
       if (code) {
+        setIsProcessing(true); // Set processing state
+
+        // Clear the code and error from the URL immediately
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('code');
+        newSearchParams.delete('error');
+        setSearchParams(newSearchParams, { replace: true });
+
         console.log("Authorization code received:", code);
         try {
           const sessionResponse = await supabase.auth.getSession();
@@ -65,21 +78,23 @@ const DexcomCallback = () => {
           showError(`An unexpected error occurred during Dexcom token exchange: ${e.message}`);
           navigate('/connect-dexcom');
         } finally {
-          // Clear the code and error from the URL after processing
-          const newSearchParams = new URLSearchParams(searchParams);
-          newSearchParams.delete('code');
-          newSearchParams.delete('error');
-          setSearchParams(newSearchParams, { replace: true });
+          setIsProcessing(false); // Reset processing state
         }
       } else {
-        console.warn("No authorization code received from Dexcom in URL.");
-        showError("No authorization code received from Dexcom.");
-        navigate('/connect-dexcom');
+        // Only show this warning if not currently processing and no code was found
+        if (!isProcessing) {
+          console.warn("No authorization code received from Dexcom in URL.");
+          showError("No authorization code received from Dexcom.");
+          navigate('/connect-dexcom');
+        }
       }
     };
 
-    handleCallback();
-  }, [searchParams, navigate, updateSettings, setSearchParams]);
+    // Only run handleCallback if a code or error is present and not already processing
+    if ((code || error) && !isProcessing) {
+      handleCallback();
+    }
+  }, [searchParams, navigate, updateSettings, setSearchParams, isProcessing]); // Add isProcessing to dependencies
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
