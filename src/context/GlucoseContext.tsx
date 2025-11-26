@@ -128,6 +128,7 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
+      console.log("Attempting to invoke dexcom-fetch-glucose Edge Function..."); // Added log
       const { data, error } = await supabase.functions.invoke('dexcom-fetch-glucose', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -135,6 +136,7 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) {
+        console.error("Error invoking dexcom-fetch-glucose Edge Function:", error); // Added log
         showError(`Failed to fetch glucose data: ${error.message}`);
         if (error.message.includes('re-connect Dexcom')) {
           updateSettings({ dexcomConnected: false });
@@ -165,6 +167,7 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
         showError("No glucose data available from Dexcom.");
       }
     } catch (error: any) {
+      console.error("Unexpected error during dexcom-fetch-glucose invocation:", error); // Added log
       showError(`An unexpected error occurred while fetching glucose: ${error.message}`);
     }
   };
