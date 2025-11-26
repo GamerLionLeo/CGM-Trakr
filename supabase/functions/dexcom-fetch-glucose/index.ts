@@ -158,10 +158,11 @@ serve(async (req) => {
     const startDate = twentyFourHoursAgo.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
     const endDate = now.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
 
-    console.log(`dexcom-fetch-glucose: Fetching glucose data from ${startDate} to ${endDate}`);
+    const dexcomApiUrl = `https://api.dexcom.com/v2/users/self/egvs?startDate=${startDate}&endDate=${endDate}`;
+    console.log(`dexcom-fetch-glucose: Fetching glucose data from URL: ${dexcomApiUrl}`); // New log
     console.log(`dexcom-fetch-glucose: Using access token (first 10 chars): ${currentAccessToken.substring(0, 10)}...`); // Log masked token
 
-    const glucoseDataResponse = await fetch(`https://api.dexcom.com/v2/users/self/egvs?startDate=${startDate}&endDate=${endDate}`, {
+    const glucoseDataResponse = await fetch(dexcomApiUrl, {
       headers: {
         'Authorization': `Bearer ${currentAccessToken}`,
         'Content-Type': 'application/json',
