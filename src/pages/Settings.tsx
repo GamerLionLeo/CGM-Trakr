@@ -7,12 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useGlucose } from '@/context/GlucoseContext';
+import { useSession } from '@/context/SessionContext'; // Import useSession
 import { ArrowLeft } from 'lucide-react';
 import { Separator } from '@/components/ui/separator'; // Import Separator
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { settings, updateSettings, disconnectDexcom } = useGlucose(); // Get disconnectDexcom
+  const { settings, updateSettings, disconnectDexcom } = useGlucose();
+  const { session } = useSession(); // Get session to check for demo user
+
+  const isDemoUser = session?.user?.email === 'demo@example.org';
 
   const [targetLow, setTargetLow] = useState(settings.targetLow.toString());
   const [targetHigh, setTargetHigh] = useState(settings.targetHigh.toString());
@@ -73,6 +77,9 @@ const Settings = () => {
               />
             </div>
           </CardContent>
+          <CardFooter>
+            <Button onClick={handleSave} className="w-full">Save Settings</Button>
+          </CardFooter>
         </Card>
 
         <Card className="mt-6">
@@ -109,7 +116,7 @@ const Settings = () => {
           </CardFooter>
         </Card>
 
-        {settings.dexcomConnected && (
+        {settings.dexcomConnected && !isDemoUser && ( // Added !isDemoUser condition
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>Dexcom Connection</CardTitle>
