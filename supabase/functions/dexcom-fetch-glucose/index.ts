@@ -11,9 +11,22 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Verify JWT token to get the user ID
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    console.error('dexcom-fetch-glucose: Unauthorized: No Authorization header');
+    return new Response(JSON.stringify({ error: 'Unauthorized: No Authorization header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+  const token = authHeader.replace('Bearer ', '');
+
+  // Initialize Supabase client with the SERVICE_ROLE_KEY
+  // This client will be used to bypass RLS initially and then set the RLS context
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Use service role key
     {
       auth: {
         persistSession: false,
@@ -22,16 +35,7 @@ serve(async (req) => {
   );
 
   try {
-    // Verify JWT token to get the user ID
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error('dexcom-fetch-glucose: Unauthorized: No Authorization header');
-      return new Response(JSON.stringify({ error: 'Unauthorized: No Authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const token = authHeader.replace('Bearer ', '');
+    // Get user from the provided JWT token
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
@@ -42,7 +46,17 @@ serve(async (req) => {
       });
     }
     console.log('dexcom-fetch-glucose: User authenticated:', user.id);
-    console.log('dexcom-fetch-glucose: Querying for user_id:', user.id);
+
+    // Set the RLS context for the database session using the custom function
+    const { error: rpcError } = await supabase.rpc('set_auth_uid', { uid: user.id });
+    if (rpcError) {
+      console.error('dexcom-fetch-glucose: Error setting auth.uid for RLS:', rpcError);
+      return new Response(JSON.stringify({ success: false, error: 'Failed to set RLS context.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    console.log('dexcom-fetch-glucose: RLS context set for user:', user.id);
 
     const CLIENT_ID = Deno.env.get('DEXCOM_CLIENT_ID');
     const CLIENT_SECRET = Deno.env.get('DEXCOM_CLIENT_SECRET');
@@ -56,7 +70,7 @@ serve(async (req) => {
       });
     }
 
-    // Retrieve tokens from the database
+    // Retrieve tokens from the database (now RLS should work correctly)
     let { data: dexcomTokens, error: fetchTokensError } = await supabase
       .from('dexcom_tokens')
       .select('*')
