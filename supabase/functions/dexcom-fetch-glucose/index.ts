@@ -11,27 +11,10 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Verify JWT token to get the user ID
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
-    console.error('dexcom-fetch-glucose: Unauthorized: No Authorization header');
-    return new Response(JSON.stringify({ error: 'Unauthorized: No Authorization header' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-  const token = authHeader.replace('Bearer ', '');
-
-  // Initialize Supabase client with the user's JWT for RLS
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
     {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`, // Pass the user's JWT for RLS
-        },
-      },
       auth: {
         persistSession: false,
       },
@@ -39,6 +22,16 @@ serve(async (req) => {
   );
 
   try {
+    // Verify JWT token to get the user ID
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('dexcom-fetch-glucose: Unauthorized: No Authorization header');
+      return new Response(JSON.stringify({ error: 'Unauthorized: No Authorization header' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
@@ -152,6 +145,8 @@ serve(async (req) => {
     const endDate = now.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
 
     console.log(`dexcom-fetch-glucose: Fetching glucose data from ${startDate} to ${endDate}`);
+    console.log(`dexcom-fetch-glucose: Using access token (first 10 chars): ${currentAccessToken.substring(0, 10)}...`); // Log masked token
+
     const glucoseDataResponse = await fetch(`https://api.dexcom.com/v2/users/self/egvs?startDate=${startDate}&endDate=${endDate}`, {
       headers: {
         'Authorization': `Bearer ${currentAccessToken}`,
@@ -169,6 +164,7 @@ serve(async (req) => {
     }
 
     const glucoseData = await glucoseDataResponse.json();
+    console.log('dexcom-fetch-glucose: Raw glucose data response:', JSON.stringify(glucoseData, null, 2)); // Log raw response
     console.log('dexcom-fetch-glucose: Successfully fetched glucose data from Dexcom.');
 
     return new Response(JSON.stringify({ success: true, data: glucoseData }), {
