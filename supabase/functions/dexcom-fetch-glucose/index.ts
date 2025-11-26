@@ -60,10 +60,10 @@ serve(async (req) => {
       .from('dexcom_tokens')
       .select('*')
       .eq('user_id', user.id)
-      .maybeSingle(); // Changed from .single() to .maybeSingle()
+      .maybeSingle();
 
     if (fetchTokensError) { // Check for actual database errors, not just no rows
-      console.error('dexcom-fetch-glucose: Error fetching Dexcom tokens for user:', fetchTokensError?.message);
+      console.error('dexcom-fetch-glucose: Database error while fetching Dexcom tokens for user:', fetchTokensError?.message);
       return new Response(JSON.stringify({ success: false, error: 'Database error while fetching Dexcom tokens.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -71,13 +71,13 @@ serve(async (req) => {
     }
     
     if (!dexcomTokens) { // If no tokens found
-      console.error('dexcom-fetch-glucose: Dexcom tokens not found for user.');
+      console.error('dexcom-fetch-glucose: Dexcom tokens not found for user. Please connect Dexcom first.');
       return new Response(JSON.stringify({ success: false, error: 'Dexcom tokens not found for user. Please connect Dexcom first.' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log('dexcom-fetch-glucose: Dexcom tokens retrieved from DB.');
+    console.log('dexcom-fetch-glucose: Dexcom tokens retrieved from DB:', dexcomTokens ? 'Found' : 'Not Found');
 
     let currentAccessToken = dexcomTokens.access_token;
     let currentRefreshToken = dexcomTokens.refresh_token;
