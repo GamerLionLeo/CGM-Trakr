@@ -79,7 +79,7 @@ serve(async (req) => {
 
     console.log('dexcom-fetch-glucose: Result of token query - data:', dexcomTokens ? 'Found' : 'Not Found', 'error:', fetchTokensError);
 
-    if (fetchTokensError) {
+    if (fetchTokensError) { // Check for actual database errors
       console.error('dexcom-fetch-glucose: Database error while fetching Dexcom tokens for user:', fetchTokensError?.message);
       return new Response(JSON.stringify({ success: false, error: 'Database error while fetching Dexcom tokens.' }), {
         status: 500,
@@ -154,8 +154,9 @@ serve(async (req) => {
     // Step 5: Make Requests Using Bearer Token
     // Fetch latest EGVs (Estimated Glucose Values)
     const now = new Date();
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const startDate = twentyFourHoursAgo.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
+    // TEMPORARY CHANGE: Request data for the last hour instead of 24 hours
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000); 
+    const startDate = oneHourAgo.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
     const endDate = now.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
 
     const dexcomApiUrl = `https://api.dexcom.com/v2/users/self/egvs?startDate=${startDate}&endDate=${endDate}`;
