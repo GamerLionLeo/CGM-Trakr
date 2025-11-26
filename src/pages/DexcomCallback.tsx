@@ -12,20 +12,14 @@ const DexcomCallback = () => {
   const { updateSettings } = useGlucose();
 
   useEffect(() => {
-    console.log("DexcomCallback component mounted.");
-    console.log("Full URL:", window.location.href);
-
     const code = searchParams.get('code');
     const error = searchParams.get('error');
-
-    console.log('Code from URL:', code);
-    console.log('Error from URL:', error);
 
     const handleCallback = async () => {
       if (error) {
         console.error("Dexcom authorization error:", error);
         showError(`Dexcom authorization denied: ${error}`);
-        // navigate('/connect-dexcom'); // Temporarily disabled for debugging
+        navigate('/connect-dexcom');
         return;
       }
 
@@ -38,7 +32,7 @@ const DexcomCallback = () => {
           if (!accessToken) {
             console.error("User not authenticated when trying to exchange Dexcom code.");
             showError("User not authenticated. Please log in again.");
-            // navigate('/login'); // Temporarily disabled for debugging
+            navigate('/login');
             return;
           }
 
@@ -53,34 +47,34 @@ const DexcomCallback = () => {
           if (edgeFunctionError) {
             console.error("Edge function invocation error:", edgeFunctionError);
             showError(`Failed to exchange Dexcom code: ${edgeFunctionError.message}`);
-            // navigate('/connect-dexcom'); // Temporarily disabled for debugging
+            navigate('/connect-dexcom');
             return;
           }
 
           if (data.success) {
             updateSettings({ dexcomConnected: true });
             showSuccess("Successfully connected to Dexcom!");
-            // navigate('/dashboard'); // Temporarily disabled for debugging
+            navigate('/dashboard');
           } else {
             console.error("Edge function returned failure:", data.error);
             showError(data.error || "Failed to connect to Dexcom. Please try again.");
-            // navigate('/connect-dexcom'); // Temporarily disabled for debugging
+            navigate('/connect-dexcom');
           }
         } catch (e: any) {
           console.error("Unexpected error during Dexcom token exchange:", e);
           showError(`An unexpected error occurred during Dexcom token exchange: ${e.message}`);
-          // navigate('/connect-dexcom'); // Temporarily disabled for debugging
+          navigate('/connect-dexcom');
         } finally {
-          // Temporarily commented out to keep params in URL for inspection
-          // const newSearchParams = new URLSearchParams(searchParams);
-          // newSearchParams.delete('code');
-          // newSearchParams.delete('error');
-          // setSearchParams(newSearchParams, { replace: true });
+          // Clear the code and error from the URL after processing
+          const newSearchParams = new URLSearchParams(searchParams);
+          newSearchParams.delete('code');
+          newSearchParams.delete('error');
+          setSearchParams(newSearchParams, { replace: true });
         }
       } else {
         console.warn("No authorization code received from Dexcom in URL.");
         showError("No authorization code received from Dexcom.");
-        // navigate('/connect-dexcom'); // Temporarily disabled for debugging
+        navigate('/connect-dexcom');
       }
     };
 
