@@ -77,9 +77,6 @@ const AppRoutes = () => {
 };
 
 const App = () => {
-  // Temporary log to check environment variables
-  console.log("VITE_TEST_VAR from App.tsx:", import.meta.env.VITE_TEST_VAR);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

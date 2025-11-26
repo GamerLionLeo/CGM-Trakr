@@ -76,13 +76,12 @@ export const GlucoseProvider = ({ children }: { children: ReactNode }) => {
         const { data, error } = await supabase
           .from('dexcom_tokens')
           .select('id')
-          .eq('user_id', session.user.id)
-          .single();
+          .eq('user_id', session.user.id); // Removed .single()
 
         if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
           console.error('Error checking Dexcom connection:', error);
           updateSettings({ dexcomConnected: false });
-        } else if (data) {
+        } else if (data && data.length > 0) { // Check if data is an array and has elements
           updateSettings({ dexcomConnected: true });
         } else {
           updateSettings({ dexcomConnected: false });
