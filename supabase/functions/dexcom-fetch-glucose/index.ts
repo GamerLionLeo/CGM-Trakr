@@ -158,7 +158,8 @@ serve(async (req) => {
     const startDate = twentyFourHoursAgo.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
     const endDate = now.toISOString().split('.')[0]; // Format to YYYY-MM-DDTHH:mm:ss
 
-    const dexcomApiUrl = `https://api.dexcom.com/v2/users/self/egvs?startDate=${startDate}&endDate=${endDate}`;
+    // *** CORRECTED API VERSION TO V3 HERE ***
+    const dexcomApiUrl = `https://api.dexcom.com/v3/users/self/egvs?startDate=${startDate}&endDate=${endDate}`;
     console.log(`dexcom-fetch-glucose: Fetching glucose data from URL: ${dexcomApiUrl}`); // New log
     console.log(`dexcom-fetch-glucose: Using access token (first 10 chars): ${currentAccessToken.substring(0, 10)}...`); // Log masked token
 
@@ -179,7 +180,7 @@ serve(async (req) => {
     }
 
     const glucoseData = await glucoseDataResponse.json();
-    console.log('dexcom-fetch-glucose: Raw glucose data response:', JSON.stringify(glucoseData, null, 2)); // Log raw response
+    console.log('dexcom-fetch-glucose: Raw glucose data response (v3):', JSON.stringify(glucoseData, null, 2)); // Log raw response
     console.log('dexcom-fetch-glucose: Successfully fetched glucose data from Dexcom.');
 
     return new Response(JSON.stringify({ success: true, data: glucoseData }), {
